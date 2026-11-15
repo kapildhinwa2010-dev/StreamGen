@@ -1,22 +1,20 @@
 # StreamGen
 
 [![CI](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/ci.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml)
-![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![CI](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml)
 
-Matrix generation engines: infinite, chunked, memory-safe, parallel and
-streamed generation from one seeded recipe. DNA_DYNIMO lineage of the
-[Kapildhinwa2010-dev Toolkit](https://github.com/kapildhinwa2010-dev/Kapildhinwa2010-dev).
+Stream recipe matrices to disk chunk by chunk as raw float64, with explicit-shape reload.
 
-## Features
+**Part of the [Kapildhinwa2010-dev Toolkit](https://github.com/kapildhinwa2010-dev/Kapildhinwa2010-dev).**
 
-- Seeded low-rank `GenRecipe` - deterministic matrices
-- `generate_infinite` - endless independent matrices
-- `generate_chunked` - constant per-chunk memory
-- `generate_safe` - byte-budget guard with `MemoryBudget`
-- `generate_parallel` - thread-pool block generation
-- `generate_stream` / `load_stream` - raw disk streaming round-trip
+## What it does
+
+StreamGen owns the STREAM mode of the DNA_DYNIMO generator family:
+generate_stream() writes row-chunks of the canonical matrix to a raw
+float64 file; load_stream() reads it back with an explicit shape;
+stream_bytes() reports the on-disk size before anything is written.
+The HONEST LIMITATION (also in the docstring): the format is a bare
+float64 binary blob - no header, no dtype metadata, no compression.
 
 ## Install
 
@@ -24,23 +22,31 @@ streamed generation from one seeded recipe. DNA_DYNIMO lineage of the
 pip install -r requirements.txt
 ```
 
-## Quickstart
+## Quick start
 
 ```python
-from streamgen import GenRecipe, generate, generate_chunked
+from streamgen import GenRecipe, generate_stream, load_stream, stream_bytes
 
 recipe = GenRecipe(rows=64, cols=128, rank=8, seed=0)
-W = generate(recipe)
-for chunk in generate_chunked(recipe, chunk_rows=16):
-    print(chunk.shape)
+print(stream_bytes(64, 128))          # 65536
+generate_stream(recipe, "W.bin", chunk_rows=8)
+W = load_stream("W.bin", 64, 128)
 ```
 
-## Tests
+## API
 
-```bash
-pytest tests/ -v
-```
+- GenRecipe(rows, cols, rank, seed)
+- generate(recipe) - the canonical matrix
+- generate_stream(recipe, path, chunk_rows) - write, returns rows
+- load_stream(path, rows, cols) - read, raises on size mismatch
+- stream_bytes(rows, cols, dtype_bytes=8)
+
+## Honest results and limitations
+
+- No header or metadata: the reader must be told rows and cols.
+- No compression: on-disk size is exactly rows*cols*8 bytes.
+- generate_stream materializes the full matrix once (see ChunkGen).
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE).
