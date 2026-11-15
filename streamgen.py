@@ -1,40 +1,26 @@
 # StreamGen - Stream matrices to disk chunk by chunk
 # Part of the Kapildhinwa2010-dev Toolkit.
 
-"""GenSuite - matrix generation engines: infinite, chunked, safe, parallel, stream.
+"""Raw binary streaming of recipe matrices to disk.
 
-Lineage: DNA_DYNIMO's production generators. One seeded recipe, five
-execution modes for producing large weight matrices without ever holding
-more than one chunk in memory (unless you ask for it).
+Lineage: DNA_DYNIMO generators. This repo owns the STREAM mode: write
+row-chunks of the canonical matrix to a raw float64 file and read them
+back with an explicit shape. stream_bytes() reports the on-disk size
+before anything is written.
+
+HONEST LIMITATION: the format is a bare float64 binary blob - no
+header, no dtype metadata, no compression; the reader must be told the
+shape. generate_stream materializes the full matrix once (see
+ChunkGen for the memory discussion).
 """
 
 from __future__ import annotations
 
 import math
-from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
-__all__ = [
-    "GenRecipe",
-    "MemoryBudget",
-    "generate",
-    "generate_infinite",
-    "generate_chunked",
-    "generate_safe",
-    "generate_parallel",
-    "generate_stream",
-    "load_stream",
-]
-
-
-class MemoryBudget(Exception):
-    """A generation request exceeded the allowed byte budget."""
-
-    def __init__(self, needed: int, allowed: int) -> None:
-        super().__init__("need {} bytes, budget allows {}".format(needed, allowed))
-        self.needed = needed
-        self.allowed = allowed
+__all__ = ["GenRecipe", "generate", "generate_chunked", "generate_stream", "load_stream", "stream_bytes"]
 
 
 class GenRecipe:
@@ -61,15 +47,6 @@ def generate(recipe: GenRecipe) -> np.ndarray:
     """The canonical matrix of the recipe (seed + 0)."""
     return recipe._latent(0)
 
-
-def generate_infinite(recipe: GenRecipe):
-    """Yield an endless stream of independent matrices from the recipe."""
-    counter = 0
-    while True:
-        yield recipe._latent(counter)
-        counter += 1
-
-
 def generate_chunked(recipe: GenRecipe, chunk_rows: int):
     """Yield ``generate(recipe)`` in row-chunks; vstack of chunks == full."""
     if chunk_rows < 1:
@@ -77,26 +54,6 @@ def generate_chunked(recipe: GenRecipe, chunk_rows: int):
     full = generate(recipe)
     for start in range(0, recipe.rows, chunk_rows):
         yield full[start:start + chunk_rows]
-
-
-def generate_safe(recipe: GenRecipe, max_bytes: int = 8 * 1024 * 1024) -> np.ndarray:
-    """Generate only if the float64 result fits in ``max_bytes``."""
-    if max_bytes < 1:
-        raise ValueError("max_bytes must be >= 1")
-    needed = recipe.rows * recipe.cols * 8
-    if needed > max_bytes:
-        raise MemoryBudget(needed, max_bytes)
-    return generate(recipe)
-
-
-def generate_parallel(recipe: GenRecipe, blocks: int = 4, workers: int = 2) -> list:
-    """Generate ``blocks`` independent matrices across worker threads."""
-    if blocks < 1:
-        raise ValueError("blocks must be >= 1")
-    if workers < 1:
-        raise ValueError("workers must be >= 1")
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(recipe._latent, range(blocks)))
 
 
 def generate_stream(recipe: GenRecipe, path: str, chunk_rows: int = 8) -> int:
@@ -117,3 +74,10 @@ def load_stream(path: str, rows: int, cols: int) -> np.ndarray:
     if data.size != rows * cols:
         raise ValueError("file size mismatch: expected {} values, got {}".format(rows * cols, data.size))
     return data.reshape(rows, cols)
+
+
+def stream_bytes(rows: int, cols: int, dtype_bytes: int = 8) -> int:
+    """On-disk size in bytes of a raw float64 (by default) stream."""
+    if rows < 1 or cols < 1 or dtype_bytes < 1:
+        raise ValueError("rows, cols and dtype_bytes must be >= 1")
+    return rows * cols * dtype_bytes
