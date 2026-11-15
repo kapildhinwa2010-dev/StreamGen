@@ -1,7 +1,8 @@
 # StreamGen
 
 [![CI](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/ci.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/ci.yml)
-[![CI](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml)
+[![CodeQL](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/StreamGen/actions/workflows/codeql.yml)
+
 
 Stream recipe matrices to disk chunk by chunk as raw float64, with explicit-shape reload.
 
